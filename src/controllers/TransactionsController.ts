@@ -1,14 +1,14 @@
-import { ethers, providers } from "ethers";
-import { Aggregator, BlsWalletWrapper, getConfig } from "bls-wallet-clients";
+import { ethers } from "ethers";
+import { Aggregator, BlsWalletWrapper } from "bls-wallet-clients";
 import { getNetwork } from "../constants/networks";
-import { SendTransactionParams } from "./../types/sendTransactionParams";
+import { SendTransactionParams } from "../types/sendTransactionParams";
 
 function findNetwork() {
     const networkName = localStorage.getItem("selectedNetwork") || "localhost";
     return getNetwork(networkName);
 }
 
-export default class TransactionController {
+export default class TransactionsController {
     constructor(
         public ethersProvider: ethers.providers.JsonRpcProvider,
         public privateKey: string
@@ -37,12 +37,13 @@ export default class TransactionController {
             verificationGateway,
             this.ethersProvider
         );
+
         const bundle = wallet.sign({
             nonce,
             actions,
         });
 
-        const aggregator = new Aggregator(findNetwork().verificationGateway);
+        const aggregator = new Aggregator(findNetwork().aggregatorUrl);
         const result = await aggregator.add(bundle);
 
         if ("failures" in result) {
@@ -51,4 +52,11 @@ export default class TransactionController {
 
         return result.hash;
     };
+
+    getAddress = async () =>
+        BlsWalletWrapper.Address(
+            this.privateKey,
+            findNetwork().verificationGateway,
+            this.ethersProvider
+        );
 }

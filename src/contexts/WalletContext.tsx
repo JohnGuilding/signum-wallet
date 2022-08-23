@@ -1,17 +1,33 @@
 import { ethers } from "ethers";
-import { createContext, ReactNode, FC, useState, useContext } from "react";
-import TransactionController from "../controllers/TransactionController";
-import { WalletContextType } from "../types/wallet";
+import React, {
+    createContext,
+    ReactNode,
+    useContext,
+    useReducer,
+    useMemo,
+} from "react";
+import TransactionsController from "../controllers/TransactionsController";
 import { getNetwork } from "./../constants/networks";
+import { reducer } from "../store";
 
 function findNetwork() {
     const networkName = localStorage.getItem("selectedNetwork") || "localhost";
     return getNetwork(networkName);
 }
 
-interface Props {
+type WalletContextType = ReturnType<typeof getContextValue>;
+
+export const WalletContext = createContext<WalletContextType>(
+    {} as WalletContextType
+);
+
+// export const useWallet = () => {
+//     return useContext(WalletContext);
+// };
+
+type Props = {
     children: ReactNode;
-}
+};
 
 const getProvider = (): ethers.providers.JsonRpcProvider => {
     const localProviderUrl = findNetwork().rpcUrl;
@@ -28,23 +44,44 @@ const getPrivateKey = () => {
     return privateKey;
 };
 
-const WalletContext = createContext<WalletContextType>({} as WalletContextType);
-
-export const useWallet = () => {
-    return useContext(WalletContext);
-};
-
-export const WalletProvider = ({ children }: Props) => {
+function getContextValue() {
     const provider = getProvider();
     const privateKey = getPrivateKey();
-    const transactionController = new TransactionController(
+    const transactionsController = new TransactionsController(
         provider,
         privateKey
     );
 
+    const initialState = {
+        account: "",
+        provider,
+    };
+
+    // eslint-disable-next-line
+    const [state, dispatch] = useReducer(reducer, initialState);
+
+    return {
+        state,
+        dispatch,
+        transactionsController,
+    };
+}
+
+export function WalletProvider({ children }: Props) {
+    const { state, dispatch, transactionsController } = getContextValue();
+
+    const value = React.useMemo(
+        () => ({
+            state,
+            dispatch,
+            transactionsController,
+        }),
+        [state, dispatch, transactionsController]
+    );
+
     return (
-        <WalletContext.Provider value={{ provider, transactionController }}>
+        <WalletContext.Provider value={value}>
             {children}
         </WalletContext.Provider>
     );
-};
+}
